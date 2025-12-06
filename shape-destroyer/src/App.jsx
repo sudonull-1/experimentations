@@ -118,6 +118,10 @@ function PentagonSVG({ color }) {
   )
 }
 
+const INITIAL_SPAWN_INTERVAL = 1500 // Start slower
+const MIN_SPAWN_INTERVAL = 300 // Maximum speed
+const SPEED_INCREASE_RATE = 0.97 // Multiplier applied every spawn
+
 function App() {
   const [shapes, setShapes] = useState([])
   const [nextId, setNextId] = useState(0)
@@ -125,6 +129,7 @@ function App() {
   const [score, setScore] = useState(0)
   const [gameOver, setGameOver] = useState(false)
   const [isPaused, setIsPaused] = useState(false)
+  const [spawnInterval, setSpawnInterval] = useState(INITIAL_SPAWN_INTERVAL)
 
   const addShape = useCallback(() => {
     if (gameOver || isPaused) return
@@ -178,16 +183,18 @@ function App() {
     }
   }, [shapes.length, gameOver])
 
-  // Auto-generate shapes
+  // Auto-generate shapes with increasing speed
   useEffect(() => {
     if (gameOver || isPaused) return
     
-    const interval = setInterval(() => {
+    const timeout = setTimeout(() => {
       addShape()
-    }, 1200)
+      // Increase speed (decrease interval) after each spawn
+      setSpawnInterval(prev => Math.max(MIN_SPAWN_INTERVAL, prev * SPEED_INCREASE_RATE))
+    }, spawnInterval)
 
-    return () => clearInterval(interval)
-  }, [addShape, gameOver, isPaused])
+    return () => clearTimeout(timeout)
+  }, [addShape, gameOver, isPaused, spawnInterval])
 
   // Initial shapes
   useEffect(() => {
@@ -204,6 +211,7 @@ function App() {
     setScore(0)
     setGameOver(false)
     setIsPaused(false)
+    setSpawnInterval(INITIAL_SPAWN_INTERVAL)
   }
 
   return (
@@ -249,6 +257,23 @@ function App() {
             <span className="counter-value">{shapes.length}</span>
             <span className="counter-max">/ {MAX_SHAPES}</span>
           </div>
+        </div>
+
+        {/* Speed Indicator */}
+        <div className="speed-container">
+          <span className="speed-label">SPEED</span>
+          <div className="speed-bar-bg">
+            <div 
+              className="speed-bar-fill"
+              style={{ 
+                width: `${Math.min(100, ((INITIAL_SPAWN_INTERVAL - spawnInterval) / (INITIAL_SPAWN_INTERVAL - MIN_SPAWN_INTERVAL)) * 100)}%` 
+              }}
+            />
+          </div>
+          <span className={`speed-value ${spawnInterval <= 500 ? 'danger' : ''}`}>
+            {spawnInterval <= 500 ? '🔥' : spawnInterval <= 800 ? '⚡' : ''}
+            {(1000 / spawnInterval).toFixed(1)}/s
+          </span>
         </div>
 
         {/* Selected Shape Indicator */}

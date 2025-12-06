@@ -357,6 +357,70 @@ body {
   color: rgba(255, 255, 255, 0.4);
 }
 
+/* Speed Indicator */
+.speed-container {
+  position: absolute;
+  top: 130px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: 15px;
+  padding: 12px 25px;
+  box-shadow: 0 0 20px rgba(255, 0, 255, 0.15);
+  pointer-events: auto;
+  min-width: 120px;
+}
+
+.speed-label {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--accent-pink);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.speed-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.speed-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-pink), var(--accent-red));
+  border-radius: 3px;
+  transition: width 0.3s ease;
+  box-shadow: 0 0 10px var(--accent-pink);
+}
+
+.speed-value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent-cyan);
+  transition: color 0.3s ease;
+}
+
+.speed-value.danger {
+  color: var(--accent-red);
+  animation: speedDanger 0.3s ease-in-out infinite;
+}
+
+@keyframes speedDanger {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
 /* Selected Shape Indicator */
 .selected-indicator {
   position: absolute;
