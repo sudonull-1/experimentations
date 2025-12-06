@@ -2,18 +2,24 @@ import { useState, useEffect, useCallback } from 'react'
 import './App.css'
 
 const SHAPE_TYPES = ['circle', 'square', 'triangle', 'hexagon', 'diamond', 'star', 'pentagon']
-const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#FFE66D', '#95E1D3', '#F38181',
-  '#AA96DA', '#FCBAD3', '#A8D8EA', '#FF9A8B', '#88D8B0',
-  '#FFEAA7', '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE'
-]
+const COLORS = {
+  circle: '#FF6B6B',
+  square: '#4ECDC4',
+  triangle: '#FFE66D',
+  hexagon: '#AA96DA',
+  diamond: '#F38181',
+  star: '#88D8B0',
+  pentagon: '#F7DC6F'
+}
+
+const MAX_SHAPES = 50
 
 function generateShape(id) {
   const type = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)]
-  const color = COLORS[Math.floor(Math.random() * COLORS.length)]
+  const color = COLORS[type]
   const size = Math.random() * 60 + 40
-  const x = Math.random() * (window.innerWidth - size)
-  const y = Math.random() * (window.innerHeight - size)
+  const x = Math.random() * (window.innerWidth - size - 100) + 50
+  const y = Math.random() * (window.innerHeight - size - 200) + 100
   const rotation = Math.random() * 360
   const animationDuration = Math.random() * 3 + 2
   
@@ -26,27 +32,33 @@ function generateShape(id) {
     y,
     rotation,
     animationDuration,
-    isDestroying: false
   }
 }
 
-function Shape({ shape, onDestroy }) {
+function Shape({ shape, onSelect, isSelected }) {
   const [particles, setParticles] = useState([])
+  const [isDestroying, setIsDestroying] = useState(false)
   
   const handleClick = () => {
-    // Create particles
+    if (isDestroying) return
+    onSelect(shape)
+  }
+
+  const triggerDestroy = useCallback(() => {
     const newParticles = Array.from({ length: 12 }, (_, i) => ({
       id: i,
       angle: (360 / 12) * i,
       color: shape.color
     }))
     setParticles(newParticles)
-    
-    // Trigger destruction after particle animation
-    setTimeout(() => {
-      onDestroy(shape.id)
-    }, 400)
-  }
+    setIsDestroying(true)
+  }, [shape.color])
+
+  useEffect(() => {
+    if (shape.shouldDestroy) {
+      triggerDestroy()
+    }
+  }, [shape.shouldDestroy, triggerDestroy])
 
   const getShapeStyle = () => ({
     left: shape.x,
@@ -60,7 +72,7 @@ function Shape({ shape, onDestroy }) {
 
   return (
     <div 
-      className={`shape ${shape.type} ${shape.isDestroying ? 'destroying' : ''}`}
+      className={`shape ${shape.type} ${isSelected ? 'selected' : ''} ${isDestroying ? 'destroying' : ''}`}
       style={getShapeStyle()}
       onClick={handleClick}
     >
@@ -109,36 +121,90 @@ function PentagonSVG({ color }) {
 function App() {
   const [shapes, setShapes] = useState([])
   const [nextId, setNextId] = useState(0)
-  const [isGenerating, setIsGenerating] = useState(true)
+  const [selectedShape, setSelectedShape] = useState(null)
+  const [score, setScore] = useState(0)
+  const [gameOver, setGameOver] = useState(false)
+  const [isPaused, setIsPaused] = useState(false)
 
   const addShape = useCallback(() => {
-    if (shapes.length < 50) {
-      setShapes(prev => [...prev, generateShape(nextId)])
-      setNextId(prev => prev + 1)
-    }
-  }, [nextId, shapes.length])
+    if (gameOver || isPaused) return
+    
+    setShapes(prev => {
+      if (prev.length >= MAX_SHAPES) {
+        return prev
+      }
+      return [...prev, generateShape(nextId)]
+    })
+    setNextId(prev => prev + 1)
+  }, [nextId, gameOver, isPaused])
 
-  const destroyShape = useCallback((id) => {
-    setShapes(prev => prev.filter(s => s.id !== id))
-  }, [])
+  const handleShapeSelect = useCallback((shape) => {
+    if (gameOver) return
+
+    if (!selectedShape) {
+      // First selection
+      setSelectedShape(shape)
+    } else if (selectedShape.id === shape.id) {
+      // Clicked same shape, deselect
+      setSelectedShape(null)
+    } else if (selectedShape.type === shape.type) {
+      // Match! Destroy both
+      setShapes(prev => 
+        prev.map(s => 
+          s.id === selectedShape.id || s.id === shape.id 
+            ? { ...s, shouldDestroy: true }
+            : s
+        )
+      )
+      
+      // Remove after animation
+      setTimeout(() => {
+        setShapes(prev => prev.filter(s => s.id !== selectedShape.id && s.id !== shape.id))
+      }, 400)
+      
+      setScore(prev => prev + 10)
+      setSelectedShape(null)
+    } else {
+      // No match, switch selection
+      setSelectedShape(shape)
+    }
+  }, [selectedShape, gameOver])
+
+  // Check for game over
+  useEffect(() => {
+    if (shapes.length >= MAX_SHAPES && !gameOver) {
+      setGameOver(true)
+      setIsPaused(true)
+    }
+  }, [shapes.length, gameOver])
 
   // Auto-generate shapes
   useEffect(() => {
-    if (!isGenerating) return
+    if (gameOver || isPaused) return
     
     const interval = setInterval(() => {
       addShape()
-    }, 800)
+    }, 1200)
 
     return () => clearInterval(interval)
-  }, [addShape, isGenerating])
+  }, [addShape, gameOver, isPaused])
 
   // Initial shapes
   useEffect(() => {
-    const initialShapes = Array.from({ length: 10 }, (_, i) => generateShape(i))
+    const initialShapes = Array.from({ length: 8 }, (_, i) => generateShape(i))
     setShapes(initialShapes)
-    setNextId(10)
+    setNextId(8)
   }, [])
+
+  const restartGame = () => {
+    const initialShapes = Array.from({ length: 8 }, (_, i) => generateShape(i))
+    setShapes(initialShapes)
+    setNextId(8)
+    setSelectedShape(null)
+    setScore(0)
+    setGameOver(false)
+    setIsPaused(false)
+  }
 
   return (
     <div className="app">
@@ -149,43 +215,85 @@ function App() {
           <Shape 
             key={shape.id} 
             shape={shape} 
-            onDestroy={destroyShape}
+            onSelect={handleShapeSelect}
+            isSelected={selectedShape?.id === shape.id}
           />
         ))}
       </div>
 
+      {/* Game Over Overlay */}
+      {gameOver && (
+        <div className="game-over-overlay">
+          <div className="game-over-content">
+            <h1>GAME OVER</h1>
+            <p className="final-score">Final Score: <span>{score}</span></p>
+            <button className="restart-btn" onClick={restartGame}>
+              Play Again
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="ui-overlay">
+        {/* Score Display */}
+        <div className="score-container">
+          <span className="score-label">SCORE</span>
+          <span className="score-value">{score}</span>
+        </div>
+
+        {/* Shape Counter */}
         <div className="counter-container">
           <div className="counter-glow" />
-          <div className="counter">
+          <div className={`counter ${shapes.length >= 40 ? 'danger' : ''}`}>
             <span className="counter-label">SHAPES</span>
             <span className="counter-value">{shapes.length}</span>
+            <span className="counter-max">/ {MAX_SHAPES}</span>
           </div>
         </div>
 
+        {/* Selected Shape Indicator */}
+        {selectedShape && !gameOver && (
+          <div className="selected-indicator">
+            <span>Find another</span>
+            <div 
+              className={`indicator-shape ${selectedShape.type}`}
+              style={{ '--shape-color': selectedShape.color }}
+            />
+          </div>
+        )}
+
         <div className="controls">
           <button 
-            className={`control-btn ${isGenerating ? 'active' : ''}`}
-            onClick={() => setIsGenerating(!isGenerating)}
+            className={`control-btn ${isPaused ? '' : 'active'}`}
+            onClick={() => setIsPaused(!isPaused)}
+            disabled={gameOver}
           >
-            {isGenerating ? '⏸ Pause' : '▶ Resume'}
+            {isPaused ? '▶ Resume' : '⏸ Pause'}
           </button>
           <button 
-            className="control-btn add-btn"
-            onClick={addShape}
+            className="control-btn restart-btn-small"
+            onClick={restartGame}
           >
-            + Add Shape
-          </button>
-          <button 
-            className="control-btn clear-btn"
-            onClick={() => setShapes([])}
-          >
-            ✕ Clear All
+            ↻ Restart
           </button>
         </div>
 
         <div className="instructions">
-          <p>Click any shape to destroy it!</p>
+          <p>Match 2 shapes of the same type to destroy them!</p>
+          <p className="warning">Don't let shapes reach {MAX_SHAPES}!</p>
+        </div>
+
+        {/* Legend */}
+        <div className="legend">
+          {SHAPE_TYPES.map(type => (
+            <div key={type} className="legend-item">
+              <div 
+                className={`legend-shape ${type}`}
+                style={{ '--shape-color': COLORS[type] }}
+              />
+              <span>{type}</span>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -193,3 +301,4 @@ function App() {
 }
 
 export default App
+
