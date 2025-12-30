@@ -1,12 +1,21 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
-  "outputDirectory": "frontend/dist",
-  "installCommand": "pip install -r requirements.txt && cd frontend && npm install",
-  "framework": null,
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/:path*"
+  "functions": {
+    "api/backtest.py": {
+      "runtime": "python3.9"
     }
+  },
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    { "handle": "filesystem" },
+    { "src": "/api/backtest", "dest": "/api/backtest.py" },
+    { "src": "/(.*)", "dest": "/frontend/$1" }
   ]
 }

@@ -2,13 +2,17 @@
 Vercel Serverless Function: /api/backtest
 """
 import sys
+import os
 from pathlib import Path
 import json
 
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# Get the directory where this file is located
+current_dir = Path(__file__).resolve().parent
+project_root = current_dir.parent
 
-from http.server import BaseHTTPRequestHandler
+# Add project root to path for imports
+sys.path.insert(0, str(project_root))
+
 import pandas as pd
 
 from strategies.sma_crossover import SMACrossover
@@ -20,7 +24,7 @@ from metric.Performance import calculate_metrics
 
 def run_backtest():
     """Run backtest and return all data"""
-    data_path = Path(__file__).resolve().parent.parent / "data" / "reliance.csv"
+    data_path = project_root / "data" / "reliance.csv"
     data = pd.read_csv(data_path, thousands=",")
     data.columns = data.columns.str.strip()
     data["date"] = pd.to_datetime(data["date"], dayfirst=True)
@@ -101,18 +105,23 @@ def run_backtest():
     }
 
 
+# Vercel serverless function handler
+from http.server import BaseHTTPRequestHandler
+
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        self.send_response(200)
-        self.send_header('Content-type', 'application/json')
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.end_headers()
-        
         try:
             response = run_backtest()
+            self.send_response(200)
         except Exception as e:
             response = {"error": str(e)}
+            self.send_response(500)
         
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
         self.wfile.write(json.dumps(response).encode())
     
     def do_OPTIONS(self):
@@ -121,4 +130,3 @@ class handler(BaseHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
-
